@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Alpine Workout</title>
+    <link rel="stylesheet" href="styles.css">
+    </link>
+    <script src="//unpkg.com/alpinejs" defer></script>
+</head>
+
+<body>
+    <main>
+
+        <section x-data="timer()">
+            <label>
+                Workout
+                <input type="number" x-model="workoutTime">
+            </label>
+            <label>
+                Cooldown
+                <input type="number" x-model="cooldownTime">
+            </label>
+            <div class="time-container">
+                <button :class="workoutState=='cooling' ? 'timer cooling' : 'timer'" x-text="currentTime()"
+                    x-on:click="toggleTimer()"></button>
+            </div>
+        </section>
+
+        <section x-data="workout()" x-init="init()">
+            <div>
+                <h1>Workout #<span x-text="workoutId"></span></h1>
+                <pre class="workout-text" x-text="workoutText"></pre>
+            </div>
+            <div>
+                <button x-on:click="prev">Prev</button>
+                <button x-on:click="next">Next</button>
+            </div>
+        </section>
+    </main>
+
+    <script>
+        const startSoundEffect = new Audio();
+        startSoundEffect.src = "sounds/start.wav";
+
+        const cooldownSoundEffect = new Audio();
+        cooldownSoundEffect.src = "sounds/stop.wav";
+        
+        const timer = () => {
+            return {
+                workoutTime: 30.0,
+                cooldownTime: 10.0,
+                workoutState: "stopped",
+                time: 30.0,
+                intervalTimer: null,
+                currentTime() {
+                    if (this.workoutState == "stopped")
+                        return this.workoutTime
+
+                    return this.time;
+                },
+
+                toggleTimer() {
+                    if (this.workoutState == "stopped") {
+                        startSoundEffect.play();
+                        this.workoutState = "working";
+                        this.time = this.workoutTime;
+                        this.intervalTimer = setInterval(() => {
+                            this.time = this.time - 1;
+
+                            if (this.time < 0 && this.workoutState == "working") {
+                                this.time = this.cooldownTime;
+                                this.workoutState = "cooling";
+                                cooldownSoundEffect.play();
+                            }
+                            else if (this.time < 0) {
+                                startSoundEffect.play();
+                                this.time = this.workoutTime;
+                                this.workoutState = "working";
+                            }
+                        }, 1000)
+                    }
+                    else {
+                        this.workoutState = "stopped";
+                        clearInterval(this.intervalTimer);
+                    }
+
+                }
+            }
+        }
+
+
+        const workout = () => {
+            return {
+                workoutText: "",
+                workoutId: 1,
+
+                async fetchWorkout(id) {
+                    let res = await fetch(`workouts/${id}.txt`)
+
+                    if (res.ok) {
+                        return await [res.ok, res.text()]
+                    }
+                    else {
+                        return [res.ok, null]
+                    }
+                },
+
+                async init() {
+                    let [ok, text] = await this.fetchWorkout(1);
+
+                    if (ok) {
+                        this.workoutText = text
+                    }
+                },
+
+                async next() {
+                    let [ok, text] = await this.fetchWorkout(this.workoutId + 1);
+
+                    if (ok) {
+                        this.workoutId++;
+                        this.workoutText = text
+                    }
+                },
+
+                async prev() {
+                    let [ok, text] = await this.fetchWorkout(this.workoutId - 1);
+
+                    if (ok) {
+                        this.workoutId--;
+                        this.workoutText = text
+                    }
+                }
+
+            }
+        }
+
+    </script>
+</body>
+
+</html>
